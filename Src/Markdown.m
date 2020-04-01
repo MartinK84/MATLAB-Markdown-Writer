@@ -123,7 +123,33 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', imgStr));
             
             Obj.figureCount = Obj.figureCount + 1;
-        end    
+        end   
+        
+        function AddStruct(Obj, Struct)
+            fields = fieldnames(Struct);
+            
+            fwrite(Obj.fileHandle, sprintf('Property | Value\n'));
+            fwrite(Obj.fileHandle, sprintf('--- | ---\n'));
+            for iField = 1:length(fields)
+                try
+                    value = Struct.(fields{iField});
+                    if (iscell(value))
+                        value = cellfun(@mat2str, value, 'UniformOutput', false);
+                        value = sprintf('%s, ', value{:});
+                        value(end - 1:end) = []; % remove trailing comma and space
+                        value = sprintf('{%s}', value);
+                    else
+                        value = mat2str(value);
+                    end
+                    fwrite(Obj.fileHandle, sprintf('%s | %s\n', fields{iField}, value));
+                catch
+                    % not all possible struct properties can be converted,
+                    % instead of testing all in advance we just catch and
+                    % errors and don't add those properties
+                end
+            end
+            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+        end
         
         function BeginCode(Obj)
             try

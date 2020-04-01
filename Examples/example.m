@@ -51,4 +51,20 @@ md.EndCode();
 
 
 
+% adding structs
+md.AddTitle('Adding structs', 2);
+md.AddText('Structs can easily be added as table by using the **AddStruct()**', ...
+           'function. Lets create a struct and add it to the markdown.');
+md.BeginCode();
+myStruct = struct();
+myStruct.Name = 'Example struct';
+myStruct.Property = {'Here', 'be', 2, 'dragons'};
+myStruct.OtherProperty = 1;
+myStruct.AnotherProperty = [1 2 3 4];
+md.EndCode();
+md.AddText('And render it to the markdown file using **AddStruct()**:');
+md.AddStruct(myStruct);
+
+
+
 md.CloseFile();

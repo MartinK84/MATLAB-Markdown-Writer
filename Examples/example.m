@@ -67,4 +67,26 @@ md.AddStruct(myStruct);
 
 
 
+
+
+% adding arrays and matrices
+md.AddTitle('Adding arrays and matrices', 2);
+md.AddText('To render matrices as tables use the **AddMatric()** function.');
+
+% row vector
+a = round(rand(1,6)*100);
+md.AddMatrix(a);
+
+% column vector
+a = round(rand(1,3)*100).';
+md.AddMatrix(a);
+
+% 2D matrix
+m = round(rand(6,4)*100);
+md.AddMatrix(m);
+
+       
+       
+       
+
 md.CloseFile();

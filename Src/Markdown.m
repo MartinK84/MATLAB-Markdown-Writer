@@ -82,7 +82,9 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', textStr));
         end
         
-        function AddFigure(Obj, Handle, Name, Description)                        
+        function AddFigure(Obj, Handle, Name, Description)  
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
             if (nargin < 2)
                 Handle = gcf;
             end
@@ -126,6 +128,8 @@ classdef Markdown < handle
         end   
         
         function AddStruct(Obj, Struct)
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
             fields = fieldnames(Struct);
             
             fwrite(Obj.fileHandle, sprintf('Property | Value\n'));
@@ -151,7 +155,34 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
         end
         
+        function AddMatrix(Obj, Matrix)
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
+            if (~ismatrix(Matrix))
+                warning('Matrix has more than two dimensions. Only the first two dimensions will be written to markdown.');                
+            end
+            
+            nX = size(Matrix,2);
+            nY = size(Matrix,1);
+            
+            header = sprintf(' %g | ', 1:nX);
+            header(end - 2:end) = [];
+            fwrite(Obj.fileHandle, sprintf(' []() | %s\n', header));
+            
+            header = repmat(' --- |',[1 nX]);
+            header(end - 1:end) = [];
+            fwrite(Obj.fileHandle, sprintf(' --- | %s\n', header));
+            for iY = 1:nY
+                line = sprintf(' %g | ', Matrix(iY,:));
+                line(end - 2:end) = [];
+                fwrite(Obj.fileHandle, sprintf(' **%i** | %s\n', iY, line));
+            end
+            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+        end
+        
         function BeginCode(Obj)
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
             try
                 stDebug = dbstack('-completenames');            
                 
@@ -171,6 +202,8 @@ classdef Markdown < handle
         end
         
         function EndCode(Obj)
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
             if (isempty(Obj.codeStack))
                 warning('Code tracking stack is empty, call the BeginCode() method before EndCode()');
                 return;

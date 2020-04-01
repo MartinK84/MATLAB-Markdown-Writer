@@ -9,6 +9,7 @@ classdef Markdown < handle
     properties (Hidden)
         fileHandle;
         figureCount;
+        codeStack;        
     end
     
     % basic class methods
@@ -81,7 +82,7 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', textStr));
         end
         
-        function AddFigure(Obj, Handle, Name, Description)
+        function AddFigure(Obj, Handle, Name, Description)                        
             if (nargin < 2)
                 Handle = gcf;
             end
@@ -94,12 +95,20 @@ classdef Markdown < handle
             
             % apply custom layout to figure and axis
             if (~isempty(Obj.layout.figure))
-                Markdown.CopyProperties(Obj.layout.figure, Handle);
+                try
+                    Markdown.CopyProperties(Obj.layout.figure, Handle);
+                catch
+                    warning('Not all figure layout parameters could be copied');
+                end
             end
             if (~isempty(Obj.layout.axis))
                 axesHandles = find(contains(arrayfun(@class, Handle.Children, 'UniformOutput', false),'.Axes') == 1);
                 for iAxes = 1:length(axesHandles)
-                    Markdown.CopyProperties(Obj.layout.axis, Handle.Children(axesHandles(iAxes)));
+                    try
+                        Markdown.CopyProperties(Obj.layout.axis, Handle.Children(axesHandles(iAxes)));
+                    catch
+                        warning('Not all axes layout parameters could be copied');
+                    end                    
                 end
             end            
             
@@ -114,7 +123,57 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', imgStr));
             
             Obj.figureCount = Obj.figureCount + 1;
-        end        
+        end    
+        
+        function BeginCode(Obj)
+            try
+                stDebug = dbstack('-completenames');            
+                
+                [~,~,ext] = fileparts(stDebug(2).file);
+                if (strcmpi(ext,'.mlx'))
+                    warning('Code block could not be started as you are running a Live Script (.mlx) file.');
+                    warning('This could also be caused by not running a complete .m file but by executing only sections of code.');
+                    return;
+                end
+                
+                Obj.codeStack{1} = stDebug(2).file;
+                Obj.codeStack{2} = stDebug(2).line;
+            catch
+                Obj.codeStack = [];
+                warning('Could not catch call stack for code tracking');
+            end
+        end
+        
+        function EndCode(Obj)
+            if (isempty(Obj.codeStack))
+                warning('Code tracking stack is empty, call the BeginCode() method before EndCode()');
+                return;
+            end
+            
+            try
+                stDebug = dbstack('-completenames');            
+            catch
+                warning('Could not catch call stack for code tracking');
+                return;
+            end
+            
+            assert(isequal(Obj.codeStack{1}, stDebug(2).file), 'Code files between BeginCode() and EndCode() have changed, are you missing an EndCode() somewhere?');
+            
+            % read all lines of m file
+            fid = fopen(stDebug(2).file,'r');
+            lines = fread(fid, inf, 'uint8');
+            lines = regexp(char(lines).', '\r\n|\r|\n', 'split');
+            fclose(fid);
+            
+            % get and print code block
+            lines = lines(Obj.codeStack{2} + 1:stDebug(2).line - 1);
+            fwrite(Obj.fileHandle, sprintf('```matlab\n'));
+            fwrite(Obj.fileHandle, sprintf('%s\n',lines{:}));
+            fwrite(Obj.fileHandle, sprintf('```\n\n'));
+            
+            % reset code stack
+            Obj.codeStack = [];            
+        end
     end
     
     methods (Static)

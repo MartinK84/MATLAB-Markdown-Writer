@@ -9,11 +9,13 @@ md.AddText('This example generates a simple markdown file directly from Matlab',
 md.AddText('To see how this file is created please see **Examples/example.m**',...
            'from within Matlab');
 
+       
+       
 % adding figures
 md.AddTitle('Adding figures', 2);
 md.AddText('To add figures simply call the *AddFigure()* functions. the figure',...
            'will be written as .png file to the images sub directory with a',...
-           'previx of the markdown file name');
+           'prefix of the markdown file name');
 
 % create example figure;
 x = linspace(0,2 * pi);
@@ -33,4 +35,20 @@ md.AddText('All figures and axes will be automatically styles based on the',...
            'figure (and their corresponding axes) which are to be added to the',...
            'markdown file');
        
+
+
+% adding code
+md.AddTitle('Adding code', 2);
+md.AddText('Although not the primary focus of this Mardown class you can also',...
+           'add matlab code directly from your scripts to the markdown file.',...
+           'Simply enclose the code you want to run and include in the markup',...
+           'between the **BeginCode()** and **EndCode()** functions');
+md.BeginCode();
+a = 1;
+b = 2;
+c = a + b;
+md.EndCode();
+
+
+
 md.CloseFile();

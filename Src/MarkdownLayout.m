@@ -14,6 +14,7 @@ classdef MarkdownLayout < handle
             Obj.figure.Color = [1 1 1];
             
             % default axes layout
+            Obj.axis.FontSize = 20;
             Obj.axis.XAxis.LineWidth = 2;
             Obj.axis.YAxis.LineWidth = 2;
             Obj.axis.ZAxis.LineWidth = 2;

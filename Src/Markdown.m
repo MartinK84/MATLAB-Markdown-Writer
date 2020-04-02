@@ -120,6 +120,13 @@ classdef Markdown < handle
             img = getframe(Handle);
             imwrite(img.cdata, imgFile);
             
+            % now we transform the file path to a relative path by
+            % stripping the path to the markdown file
+            [path,~] = fileparts(Obj.filePath);
+            ind = strfind(imgFile,path);
+            if (ind > 0)
+                imgFile(ind:ind + length(path)) = [];
+            end
             imgStr = sprintf(Obj.layout.image, Description, imgFile);
             
             fwrite(Obj.fileHandle, sprintf('%s\n\n', imgStr));

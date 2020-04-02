@@ -85,6 +85,10 @@ md.AddMatrix(a);
 m = round(rand(6,4)*100);
 md.AddMatrix(m);
 
+md.AddText('To add arrays as block quotes and not as a matric the **AddArray()**',...
+           'function can be used.');
+md.AddArray(a);
+
        
        
        

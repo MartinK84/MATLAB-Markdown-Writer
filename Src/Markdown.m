@@ -127,10 +127,17 @@ classdef Markdown < handle
             Obj.figureCount = Obj.figureCount + 1;
         end   
         
-        function AddStruct(Obj, Struct)
+        function AddStruct(Obj, Struct, PropertyList)
             assert(~isempty(Obj.fileHandle), 'file not created');
             
+            if (nargin < 3)
+                PropertyList = [];
+            end
+            
             fields = fieldnames(Struct);
+            if (~isempty(PropertyList))
+                fields = intersect(PropertyList, fields);
+            end
             
             fwrite(Obj.fileHandle, sprintf('Property | Value\n'));
             fwrite(Obj.fileHandle, sprintf('--- | ---\n'));
@@ -155,8 +162,27 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
         end
         
-        function AddMatrix(Obj, Matrix)
-            assert(~isempty(Obj.fileHandle), 'file not created');
+        function AddArray(Obj, Array, FormatStr)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert((sum(size(Array) > 1) == 1), 'Only one dimensional arrays can be added');
+                       
+            if (nargin < 3)
+                FormatStr = '%g';
+            end
+            
+            arrayStr = sprintf(sprintf(' %s, ', FormatStr), Array);
+            arrayStr(end - 2:end) = [];
+            
+            fwrite(Obj.fileHandle, sprintf('>%s\n', arrayStr));
+            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+        end
+        
+        function AddMatrix(Obj, Matrix, FormatStr)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            if (nargin < 3)
+                FormatStr = '%g';
+            end
             
             if (~ismatrix(Matrix))
                 warning('Matrix has more than two dimensions. Only the first two dimensions will be written to markdown.');                
@@ -165,7 +191,7 @@ classdef Markdown < handle
             nX = size(Matrix,2);
             nY = size(Matrix,1);
             
-            header = sprintf(' %g | ', 1:nX);
+            header = sprintf(' %i | ', 1:nX);
             header(end - 2:end) = [];
             fwrite(Obj.fileHandle, sprintf(' []() | %s\n', header));
             
@@ -173,7 +199,7 @@ classdef Markdown < handle
             header(end - 1:end) = [];
             fwrite(Obj.fileHandle, sprintf(' --- | %s\n', header));
             for iY = 1:nY
-                line = sprintf(' %g | ', Matrix(iY,:));
+                line = sprintf(sprintf(' %s | ', FormatStr), Matrix(iY,:));
                 line(end - 2:end) = [];
                 fwrite(Obj.fileHandle, sprintf(' **%i** | %s\n', iY, line));
             end

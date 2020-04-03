@@ -177,11 +177,24 @@ classdef Markdown < handle
                 FormatStr = '%g';
             end
             
-            arrayStr = sprintf(sprintf(' %s, ', FormatStr), Array);
-            arrayStr(end - 2:end) = [];
+            if (iscell(Array))
+                arrayStr = cellfun(@(x)(sprintf(sprintf('%s, ', FormatStr),x)), Array, 'UniformOutput', false);
+                arrayStr(end) = [];
+                arrayStr = cell2mat(arrayStr);
+                arrayStr(end - 2:end) = [];
+            else
+                arrayStr = sprintf(sprintf('%s, ', FormatStr), Array);
+                arrayStr(end - 2:end) = [];
+            end
             
             fwrite(Obj.fileHandle, sprintf('>%s\n', arrayStr));
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+        end
+        
+        function AddPageBreak(Obj)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.layout.pageBreak)); 
         end
         
         function AddMatrix(Obj, Matrix, FormatStr)

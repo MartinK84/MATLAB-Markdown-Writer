@@ -3,6 +3,7 @@ classdef MarkdownLayout < handle
     properties 
         title = '#';
         image = '![%s](%s)';
+        pageBreak = '<div style="page-break-after: always;"></div>';
                 
         figure = [];
         axis = [];

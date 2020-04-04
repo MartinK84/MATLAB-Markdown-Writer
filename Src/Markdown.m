@@ -255,6 +255,12 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.layout.pageBreak)); 
         end
         
+        function AddHorizontalLine(Obj)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.layout.horizontalLine)); 
+        end
+        
         function AddMatrix(Obj, Matrix, FormatStr)
             narginchk(2,3);
             assert(~isempty(Obj.fileHandle), 'File not created');

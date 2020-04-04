@@ -7,6 +7,7 @@ classdef MarkdownLayout < handle
         tableSpacer = ' | ';
         tableHeader = '---';
         blockQuote = '> ';
+        horizontalLine = '---';
                 
         figure = [];
         axis = [];

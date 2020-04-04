@@ -41,21 +41,31 @@ classdef Markdown < handle
         end
         
         function CreateFile(Obj)
-            assert(~isempty(Obj.filePath), 'filePath propery not set');
+            assert(~isempty(Obj.filePath), 'FilePath propery not set');
             
             if (~isempty(Obj.fileHandle))
                 Obj.CloseFile();
             end
             
-            Obj.fileHandle = fopen(Obj.filePath, 'w');
+            Obj.fileHandle = fopen(Obj.filePath, 'w+');
         end
         
         function CloseFile(Obj)
-            assert(~isempty(Obj.fileHandle), 'file not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             %fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN> % add single newline character as file end);            
             fclose(Obj.fileHandle);
             Obj.fileHandle = [];
+        end
+        
+        function AppendTemplate(Obj, TemplateFile)
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            
+            fid = fopen(TemplateFile, 'r');
+            tplData = fread(fid, inf, 'uint8');
+            fwrite(Obj.fileHandle, tplData);
+            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+            fclose(fid);
         end
     end
         
@@ -188,7 +198,7 @@ classdef Markdown < handle
         function AddTitle(Obj, Str, Level)
             narginchk(2,3);
 
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             if (nargin < 3)
                 Level = 1;
@@ -198,9 +208,15 @@ classdef Markdown < handle
         end
         
         function AddText(Obj, varargin)
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
                        
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertText( varargin{:})));
+        end
+        
+        function ReplaceText(Obj, Tag, varargin)
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            
+            Obj.ReplaceTag(Tag, sprintf('%s\n', Obj.ConvertText( varargin{:})));
         end
         
         function AddFigure(Obj, Handle, Name, Description)  
@@ -212,19 +228,38 @@ classdef Markdown < handle
             end
             if (nargin < 3)
                 Name = sprintf('%03i', Obj.figureCount);
-            end            
+            end
             if (nargin < 4)
                 Description = '';
-            end                       
+            end
             
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertFigure(Handle, Name, Description)));
             
             Obj.figureCount = Obj.figureCount + 1;
         end   
         
+        function ReplaceFigure(Obj, Tag, Handle, Name, Description)
+            narginchk(3,5);
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            if (nargin < 3)
+                Handle = gcf;
+            end
+            if (nargin < 4)
+                Name = sprintf('%03i', Obj.figureCount);
+            end
+            if (nargin < 5)
+                Description = '';
+            end
+            
+            Obj.ReplaceTag(Tag, sprintf('%s\n', Obj.ConvertFigure(Handle, Name, Description)));
+            
+            Obj.figureCount = Obj.figureCount + 1;
+        end
+        
         function AddStruct(Obj, Struct, PropertyList)
             narginchk(2,3);
-            assert(~isempty(Obj.fileHandle), 'file not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             if (nargin < 3)
                 PropertyList = [];
@@ -235,11 +270,62 @@ classdef Markdown < handle
                 fwrite(Obj.fileHandle, sprintf('%s', markDown{iLine}));
             end
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+        end        
+        
+        function ReplaceStruct(Obj, Tag, Struct, PropertyList)
+            narginchk(3,4);
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            
+            if (nargin < 4)
+                PropertyList = [];
+            end
+            
+            markDown = Obj.ConvertStruct(Struct, PropertyList);
+            
+            Obj.ReplaceTag(Tag, sprintf('%s',markDown{:}));
+        end
+               
+        function ReplaceTag(Obj, Tag, Text)
+            narginchk(2,3);
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            
+            % string tag to hashed tag
+            Tag = sprintf('<!---###%s###--->', Tag);
+            
+            % first we read in the entire file as cell array
+            fseek(Obj.fileHandle, 0, 'bof');
+            lines = fread(Obj.fileHandle, inf, 'uint8');
+            lines = regexp(char(lines).', '\r\n|\r|\n', 'split');
+            lines(end) = [];
+            
+            % find the index of the Tag and all empty lines and remove paragraph in between
+            tagInd = find(contains(lines, Tag) == 1);
+            if (isempty(tagInd))% tag not found
+                warning('Tag %s not found, skipping', Tag);
+                return 
+            end
+            emptyInd = find(cellfun(@isempty,lines) == 1);            
+            leftInd = find((emptyInd - tagInd) < 0);
+            rightInd = find((emptyInd - tagInd) > 0);
+            clearLines = emptyInd(leftInd(end)):emptyInd(rightInd(1));            
+            lines(clearLines) = [];
+            
+            % add new paragraph with replacement text         
+            lines = cat(2, lines(1:emptyInd(leftInd(end))-1),...
+                                 {sprintf('\n%s\n%s', Tag, Text)}, ...
+                                 lines(emptyInd(leftInd(end)):end));
+                                   
+            % write to file (overwrite entire file)
+            fclose(Obj.fileHandle);
+            Obj.fileHandle = fopen(Obj.filePath, 'w+');
+            for iLine = 1:length(lines)
+                fwrite(Obj.fileHandle, sprintf('%s\n', lines{iLine}));
+            end
         end
         
         function AddArray(Obj, Array, FormatStr)
             narginchk(2,3);
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             assert((sum(size(Array) > 1) == 1), 'Only one dimensional arrays can be added');
                        
             if (nargin < 3)
@@ -249,21 +335,33 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertArray(Array, FormatStr)));
         end
         
+        function ReplaceArray(Obj, Tag, Array, FormatStr)
+            narginchk(3,4);
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            assert((sum(size(Array) > 1) == 1), 'Only one dimensional arrays can be added');
+                       
+            if (nargin < 4)
+                FormatStr = '%g';
+            end
+                        
+            Obj.ReplaceTag(Tag, Obj.ConvertArray(Array, FormatStr));
+        end
+        
         function AddPageBreak(Obj)
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.layout.pageBreak)); 
         end
         
         function AddHorizontalLine(Obj)
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.layout.horizontalLine)); 
         end
         
         function AddMatrix(Obj, Matrix, FormatStr)
             narginchk(2,3);
-            assert(~isempty(Obj.fileHandle), 'File not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             if (nargin < 3)
                 FormatStr = '%g';
@@ -276,8 +374,20 @@ classdef Markdown < handle
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
         end
         
+        function ReplaceMatrix(Obj, Tag, Matrix, FormatStr)
+            narginchk(3,4);
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
+            
+            if (nargin < 4)
+                FormatStr = '%g';
+            end
+            
+            markDown = Obj.ConvertMatrix(Matrix, FormatStr);
+            Obj.ReplaceTag(Tag, sprintf('%s',markDown{:}));
+        end
+        
         function BeginCode(Obj)
-            assert(~isempty(Obj.fileHandle), 'file not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             try
                 stDebug = dbstack('-completenames');            
@@ -298,7 +408,7 @@ classdef Markdown < handle
         end
         
         function EndCode(Obj)
-            assert(~isempty(Obj.fileHandle), 'file not created');
+            assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             if (isempty(Obj.codeStack))
                 warning('Code tracking stack is empty, call the BeginCode() method before EndCode()');

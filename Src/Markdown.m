@@ -112,7 +112,7 @@ classdef Markdown < handle
             MarkDown = imgStr;
         end
         
-        function [MarkDown] = ConvertStruct(Obj, Struct, PropertyList)           
+        function [MarkDown] = ConvertStruct(Obj, Struct, PropertyList)
             fields = fieldnames(Struct);
             if (~isempty(PropertyList)) % check if only selected properties are to be converted
                 fields = intersect(PropertyList, fields);
@@ -186,6 +186,8 @@ classdef Markdown < handle
     % markdown specific methods
     methods
         function AddTitle(Obj, Str, Level)
+            narginchk(2,3);
+
             assert(~isempty(Obj.fileHandle), 'File not created');
             
             if (nargin < 3)
@@ -202,6 +204,7 @@ classdef Markdown < handle
         end
         
         function AddFigure(Obj, Handle, Name, Description)  
+            narginchk(2,4);
             assert(~isempty(Obj.fileHandle), 'File not created');
             
             if (nargin < 2)
@@ -220,6 +223,7 @@ classdef Markdown < handle
         end   
         
         function AddStruct(Obj, Struct, PropertyList)
+            narginchk(2,3);
             assert(~isempty(Obj.fileHandle), 'file not created');
             
             if (nargin < 3)
@@ -234,6 +238,7 @@ classdef Markdown < handle
         end
         
         function AddArray(Obj, Array, FormatStr)
+            narginchk(2,3);
             assert(~isempty(Obj.fileHandle), 'File not created');
             assert((sum(size(Array) > 1) == 1), 'Only one dimensional arrays can be added');
                        
@@ -251,6 +256,7 @@ classdef Markdown < handle
         end
         
         function AddMatrix(Obj, Matrix, FormatStr)
+            narginchk(2,3);
             assert(~isempty(Obj.fileHandle), 'File not created');
             
             if (nargin < 3)

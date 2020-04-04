@@ -4,6 +4,9 @@ classdef MarkdownLayout < handle
         title = '#';
         image = '![%s](%s)';
         pageBreak = '<div style="page-break-after: always;"></div>';
+        tableSpacer = ' | ';
+        tableHeader = '---';
+        blockQuote = '> ';
                 
         figure = [];
         axis = [];

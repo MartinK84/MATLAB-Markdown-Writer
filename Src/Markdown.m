@@ -58,43 +58,23 @@ classdef Markdown < handle
             Obj.fileHandle = [];
         end
     end
-    
-    % markdown specific methods
+        
+    % methods for conversion of input to markdown string
     methods
-        function AddTitle(Obj, Str, Level)
-            assert(~isempty(Obj.fileHandle), 'file not created');
-            
-            if (nargin < 3)
-                Level = 1;
-            end
-            
+        function [MarkDown] = ConvertTitle(Obj, Str, Level)
             levelStr = repmat(Obj.layout.title, [1 Level]);
             
-            fwrite(Obj.fileHandle, sprintf('%s %s\n\n', levelStr, Str));
+            MarkDown = sprintf('%s %s', levelStr, Str);
         end
         
-        function AddText(Obj, varargin)
-            assert(~isempty(Obj.fileHandle), 'file not created');
-            
-            textStr = sprintf('%s ', varargin{:}); % concatenate all given strings, spaced by a 
+        function [MarkDown] = ConvertText(~, varargin)
+            textStr = sprintf('%s ', varargin{:}); % concatenate all given strings, spaced by a space char
             textStr(end) = []; % remove trailing white space
             
-            fwrite(Obj.fileHandle, sprintf('%s\n\n', textStr));
+            MarkDown = textStr;
         end
         
-        function AddFigure(Obj, Handle, Name, Description)  
-            assert(~isempty(Obj.fileHandle), 'file not created');
-            
-            if (nargin < 2)
-                Handle = gcf;
-            end
-            if (nargin < 3)
-                Name = sprintf('%03i', Obj.figureCount);
-            end            
-            if (nargin < 4)
-                Description = '';
-            end
-            
+        function [MarkDown] = ConvertFigure(Obj, Handle, Name, Description)
             % apply custom layout to figure and axis
             if (~isempty(Obj.layout.figure))
                 try
@@ -129,25 +109,18 @@ classdef Markdown < handle
             end
             imgStr = sprintf(Obj.layout.image, Description, imgFile);
             
-            fwrite(Obj.fileHandle, sprintf('%s\n\n', imgStr));
-            
-            Obj.figureCount = Obj.figureCount + 1;
-        end   
+            MarkDown = imgStr;
+        end
         
-        function AddStruct(Obj, Struct, PropertyList)
-            assert(~isempty(Obj.fileHandle), 'file not created');
-            
-            if (nargin < 3)
-                PropertyList = [];
-            end
-            
+        function [MarkDown] = ConvertStruct(Obj, Struct, PropertyList)           
             fields = fieldnames(Struct);
-            if (~isempty(PropertyList))
+            if (~isempty(PropertyList)) % check if only selected properties are to be converted
                 fields = intersect(PropertyList, fields);
             end
             
-            fwrite(Obj.fileHandle, sprintf('Property | Value\n'));
-            fwrite(Obj.fileHandle, sprintf('--- | ---\n'));
+            MarkDown = [];
+            MarkDown = cat(1, MarkDown, {sprintf('Property%sValue\n', Obj.layout.tableSpacer)});
+            MarkDown = cat(1, MarkDown, {sprintf('%s%s%s\n', Obj.layout.tableHeader, Obj.layout.tableSpacer, Obj.layout.tableHeader)});            
             for iField = 1:length(fields)
                 try
                     value = Struct.(fields{iField});
@@ -159,12 +132,103 @@ classdef Markdown < handle
                     else
                         value = mat2str(value);
                     end
-                    fwrite(Obj.fileHandle, sprintf('%s | %s\n', fields{iField}, value));
+                    MarkDown = cat(1, MarkDown, {sprintf('%s%s%s\n', fields{iField}, Obj.layout.tableSpacer, value)});            
                 catch
                     % not all possible struct properties can be converted,
                     % instead of testing all in advance we just catch and
                     % errors and don't add those properties
                 end
+            end
+        end
+            
+        function [MarkDown] = ConvertMatrix(Obj, Matrix, FormatStr)
+            MarkDown = [];
+            if (~ismatrix(Matrix))
+                warning('Matrix has more than two dimensions. Only the first two dimensions will be written to markdown.');                
+                return;
+            end
+            
+            nX = size(Matrix,2);
+            nY = size(Matrix,1);
+            
+            MarkDown = [];
+            
+            header = sprintf(' %i | ', 1:nX);
+            header(end - 2:end) = [];
+            MarkDown = cat(1, MarkDown, {sprintf(' []()%s%s\n', Obj.layout.tableSpacer, header)});
+            
+            header = repmat(' --- |',[1 nX]);
+            header(end - 1:end) = [];
+            MarkDown = cat(1, MarkDown, {sprintf(' %s%s%s\n', Obj.layout.tableHeader, Obj.layout.tableSpacer, header)});
+            
+            for iY = 1:nY
+                line = sprintf(sprintf(' %s%s', FormatStr,Obj.layout.tableSpacer), Matrix(iY,:));
+                line(end - 2:end) = [];
+                MarkDown = cat(1, MarkDown, {sprintf(' **%i**%s%s\n', iY, Obj.layout.tableSpacer, line)});
+            end
+        end
+        
+        function [MarkDown] = ConvertArray(Obj, Array, FormatStr)
+            if (iscell(Array))
+                arrayStr = cellfun(@(x)(sprintf(sprintf('%s, ', FormatStr),x)), Array, 'UniformOutput', false);
+                arrayStr(end) = [];
+                arrayStr = cell2mat(arrayStr);
+                arrayStr(end - 2:end) = [];
+            else
+                arrayStr = sprintf(sprintf('%s, ', FormatStr), Array);
+                arrayStr(end - 2:end) = [];
+            end
+            
+            MarkDown = sprintf('%s%s\n', Obj.layout.blockQuote, arrayStr);
+        end
+    end
+    
+    % markdown specific methods
+    methods
+        function AddTitle(Obj, Str, Level)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            if (nargin < 3)
+                Level = 1;
+            end
+                        
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertTitle(Str, Level)));
+        end
+        
+        function AddText(Obj, varargin)
+            assert(~isempty(Obj.fileHandle), 'File not created');
+                       
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertText( varargin{:})));
+        end
+        
+        function AddFigure(Obj, Handle, Name, Description)  
+            assert(~isempty(Obj.fileHandle), 'File not created');
+            
+            if (nargin < 2)
+                Handle = gcf;
+            end
+            if (nargin < 3)
+                Name = sprintf('%03i', Obj.figureCount);
+            end            
+            if (nargin < 4)
+                Description = '';
+            end                       
+            
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertFigure(Handle, Name, Description)));
+            
+            Obj.figureCount = Obj.figureCount + 1;
+        end   
+        
+        function AddStruct(Obj, Struct, PropertyList)
+            assert(~isempty(Obj.fileHandle), 'file not created');
+            
+            if (nargin < 3)
+                PropertyList = [];
+            end
+            
+            markDown = Obj.ConvertStruct(Struct, PropertyList);
+            for iLine = 1:length(markDown)
+                fwrite(Obj.fileHandle, sprintf('%s', markDown{iLine}));
             end
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
         end
@@ -176,19 +240,8 @@ classdef Markdown < handle
             if (nargin < 3)
                 FormatStr = '%g';
             end
-            
-            if (iscell(Array))
-                arrayStr = cellfun(@(x)(sprintf(sprintf('%s, ', FormatStr),x)), Array, 'UniformOutput', false);
-                arrayStr(end) = [];
-                arrayStr = cell2mat(arrayStr);
-                arrayStr(end - 2:end) = [];
-            else
-                arrayStr = sprintf(sprintf('%s, ', FormatStr), Array);
-                arrayStr(end - 2:end) = [];
-            end
-            
-            fwrite(Obj.fileHandle, sprintf('>%s\n', arrayStr));
-            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+                        
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertArray(Array, FormatStr)));
         end
         
         function AddPageBreak(Obj)
@@ -204,24 +257,9 @@ classdef Markdown < handle
                 FormatStr = '%g';
             end
             
-            if (~ismatrix(Matrix))
-                warning('Matrix has more than two dimensions. Only the first two dimensions will be written to markdown.');                
-            end
-            
-            nX = size(Matrix,2);
-            nY = size(Matrix,1);
-            
-            header = sprintf(' %i | ', 1:nX);
-            header(end - 2:end) = [];
-            fwrite(Obj.fileHandle, sprintf(' []() | %s\n', header));
-            
-            header = repmat(' --- |',[1 nX]);
-            header(end - 1:end) = [];
-            fwrite(Obj.fileHandle, sprintf(' --- | %s\n', header));
-            for iY = 1:nY
-                line = sprintf(sprintf(' %s | ', FormatStr), Matrix(iY,:));
-                line(end - 2:end) = [];
-                fwrite(Obj.fileHandle, sprintf(' **%i** | %s\n', iY, line));
+            markDown = Obj.ConvertMatrix(Matrix, FormatStr);
+            for iLine = 1:length(markDown)
+                fwrite(Obj.fileHandle, sprintf('%s', markDown{iLine}));
             end
             fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
         end

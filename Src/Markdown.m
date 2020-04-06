@@ -14,9 +14,25 @@ classdef Markdown < handle
     
     % basic class methods
     methods
-        function Obj = Markdown(filePath)
+        function Obj = Markdown(FilePath)
+        % Create a new instance of a Markdown Writer object. This object
+        % can then be used to create the markdown file and write content 
+        % such as text and figures to it. 
+        %
+        % Arguments:
+        %   FilePath: Path to the markdown file to be written
+        %
+        % Returns:
+        %   Markdown: Reference to the newly created markdown class
+        %
+        % Example:
+        %   md = MarkDown('MyMarkDownFile.md');
+        %   md.CreateFile();
+        %   md.AddTitle('My Title');
+        %   md.CloseFile();
+        %
             if (nargin > 0)
-                Obj.filePath = filePath;
+                Obj.filePath = FilePath;
                 
                 % set path for images
                 [path, ~] = fileparts(Obj.filePath);
@@ -41,6 +57,15 @@ classdef Markdown < handle
         end
         
         function CreateFile(Obj)
+        % Create a new markdown file and overwrite its content. This
+        % function must be called before any content can be written to the
+        % markdown file (otherwise all Add*() and Replace*() functions will
+        % result in an error.
+        %        
+        % Example:
+        %   md.CreateFile();
+        %            
+            
             assert(~isempty(Obj.filePath), 'FilePath propery not set');
             
             if (~isempty(Obj.fileHandle))
@@ -51,6 +76,12 @@ classdef Markdown < handle
         end
         
         function CloseFile(Obj)
+        % Close the opened markdown file and release its file handle.
+        %        
+        % Example:
+        %   md.CloseFile();
+        %                        
+            
             assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             %fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN> % add single newline character as file end);            
@@ -59,6 +90,23 @@ classdef Markdown < handle
         end
         
         function AppendTemplate(Obj, TemplateFile)
+        % Appends the content of a template file to the already created
+        % markdown file. The template file can be of any format and is
+        % concatenated simply as text.
+        %
+        % This method is typically used when working with templates that
+        % are to be merged into the newly created markdown file.
+        %
+        % Arguments:
+        %   TemplateFile: Path to the template file
+        %
+        % Example:
+        %   md = MarkDown('MyMarkDownFile.md');
+        %   md.CreateFile();
+        %   md.AppendTemplate('MyFirstTemplate.md');
+        %   md.AppendTemplate('MySecondTemplate.md');
+        %   md.CloseFile();            
+            
             assert(~isempty(Obj.fileHandle), 'Output file not created');
             
             fid = fopen(TemplateFile, 'r');
@@ -195,7 +243,90 @@ classdef Markdown < handle
     
     % markdown specific methods
     methods
-        function AddTitle(Obj, Str, Level)
+        function AddFunctionReference(Obj, Function)
+            narginchk(2,2);
+            
+            refStr = help(Function);
+            refStr = regexp(refStr,'\n','split');
+            refStr = cellfun(@strtrim, refStr, 'UniformOutput', false);                        
+            
+            % remove matlab reference
+            try
+                refStr(find(contains(refStr,'Reference page in Doc Center') == 1,1):end) = [];
+            catch
+            end
+            
+            % title with function name
+            Function = regexp(Function,'/','split'); % remove class name
+            functionStr = sprintf('#### %s()\n', Function{end});
+            fwrite(Obj.fileHandle, sprintf('%s\n',functionStr));
+           
+            % help/description string
+            firstBlock = find(contains(refStr,':') == 1);
+            helpStr = refStr(1:firstBlock-2);
+            for iHelpStr = 1:length(helpStr)                
+                if (isempty(helpStr{iHelpStr}))
+                    fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+                else
+                    fwrite(Obj.fileHandle, sprintf('*%s*\n', helpStr{iHelpStr}));
+                end
+            end
+            fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+            
+            refStr = refStr(firstBlock:end);
+            emptyLines = find(cellfun(@isempty, refStr) == 1);
+            emptyLines = [1 emptyLines];
+            
+            % loop over blocks
+            for iBlock = 1:length(emptyLines)-1
+                block = refStr(emptyLines(iBlock):emptyLines(iBlock+1)-1);
+                if (isempty(block{1}))
+                    block(1) = [];
+                end
+                fwrite(Obj.fileHandle, sprintf('**%s**\n', block{1}));
+                
+                if (strcmp(block{1},'Example:'))
+                    fwrite(Obj.fileHandle, sprintf('```matlab\n'));
+                    fwrite(Obj.fileHandle, sprintf('%s\n',block{2:end}));
+                    fwrite(Obj.fileHandle, sprintf('```\n\n'));
+                else                                    
+                    markDown = [];
+                    markDown = cat(1, markDown, {sprintf('Parameter%sDescription\n', Obj.layout.tableSpacer)});
+                    markDown = cat(1, markDown, {sprintf('%s%s%s\n', Obj.layout.tableHeader, Obj.layout.tableSpacer, Obj.layout.tableHeader)});            
+
+                    block = block(2:end); % rest of the block
+                    paramIndex = find(contains(block,':') == 1);
+                    paramIndex = [paramIndex length(paramIndex)];
+                    for iParam = 1:length(paramIndex) - 1
+                        param = block(paramIndex(iParam):max(paramIndex(iParam),paramIndex(iParam+1)-1));
+                        paramName = regexp(param{1},':','split');
+                        desc = cat(2, paramName(2), param(2:end));
+                        desc = sprintf('%s<br>',desc{:});
+                        desc(end-3:end) = [];
+                        paramName = paramName{1};
+
+                        markDown = cat(1, markDown, {sprintf('%s%s%s\n', paramName, Obj.layout.tableSpacer, desc)});            
+                    end
+
+                    for iMarkDown = 1:length(markDown)
+                        fwrite(Obj.fileHandle, sprintf('%s', markDown{iMarkDown}));
+                    end
+                    fwrite(Obj.fileHandle, sprintf('\n')); %#ok<SPRINTFN>
+                end
+            end
+        end
+        
+        function AddTitle(Obj, Title, Level)
+        % Adds a title to the markdown file. 
+        %
+        % Arguments:
+        %   Title: Text of the title to add
+        %   Level: (optional,default=1) Depths level of the title to add
+        %
+        % Example:
+        %   md.AddTitle('MyAmazingTitle');            
+        %   md.AddTitle('AnotherTitle',2); % depths of 2
+            
             narginchk(2,3);
 
             assert(~isempty(Obj.fileHandle), 'Output file not created');
@@ -204,10 +335,31 @@ classdef Markdown < handle
                 Level = 1;
             end
                         
-            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertTitle(Str, Level)));
+            fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertTitle(Title, Level)));
         end
         
         function AddText(Obj, varargin)
+        % Adds simple text to the markdown file. 
+        %
+        % The text can contain additional markdown formatting options such 
+        % as bold, itatlic, etc. and will simply be written to the target 
+        % file as plain text.
+        %
+        % The function can also take an arbitrary number of input
+        % parameters that will all be written to the file with a space as
+        % separator in between. This is implemented for better formatting
+        % of larget text blocks in code and for writing text cell arrays.
+        %
+        % Arguments:
+        %   Text: (varargin) Text to add        
+        %
+        % Example:
+        %   md.AddText('My text');
+        %   md.AddText('My text', 'is even longer');
+        %   myCell = {'My text', 'is even longer', 'than before');
+        %   md.AddText(myCell{:});
+        
+            
             assert(~isempty(Obj.fileHandle), 'Output file not created');
                        
             fwrite(Obj.fileHandle, sprintf('%s\n\n', Obj.ConvertText( varargin{:})));

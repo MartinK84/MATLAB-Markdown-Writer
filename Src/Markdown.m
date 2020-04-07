@@ -75,6 +75,16 @@ classdef Markdown < handle
             Obj.fileHandle = fopen(Obj.filePath, 'w+');
         end
         
+        function OpenFile(Obj)
+            assert(~isempty(Obj.filePath), 'FilePath propery not set');
+            
+            if (~isempty(Obj.fileHandle))
+                Obj.CloseFile();
+            end
+            
+            Obj.fileHandle = fopen(Obj.filePath, 'a+');
+        end
+        
         function CloseFile(Obj)
         % Close the opened markdown file and release its file handle.
         %        

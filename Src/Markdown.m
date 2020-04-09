@@ -460,6 +460,11 @@ classdef Markdown < handle
             lines = regexp(char(lines).', '\r\n|\r|\n', 'split');
             lines(end) = [];
             
+            % we need an empty line at the end
+            if (~isempty(lines{end}))
+                lines{end+1} = '';
+            end
+            
             % find the index of the Tag and all empty lines and remove paragraph in between
             tagInd = find(contains(lines, Tag) == 1);
             if (isempty(tagInd))% tag not found

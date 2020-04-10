@@ -193,12 +193,12 @@ classdef Markdown < handle
                 try
                     value = Struct.(fields{iField});
                     if (iscell(value))
-                        value = cellfun(@mat2str, value, 'UniformOutput', false);
+                        value = cellfun(@(x)(mat2str(x,3)), value, 'UniformOutput', false);
                         value = sprintf('%s, ', value{:});
                         value(end - 1:end) = []; % remove trailing comma and space
                         value = sprintf('{%s}', value);
                     else
-                        value = mat2str(value);
+                        value = mat2str(value,3);
                     end
                     MarkDown = cat(1, MarkDown, {sprintf('%s%s%s\n', fields{iField}, Obj.layout.tableSpacer, value)});            
                 catch
@@ -244,7 +244,7 @@ classdef Markdown < handle
                 arrayStr(end - 2:end) = [];
             else
                 arrayStr = sprintf(sprintf('%s, ', FormatStr), Array);
-                arrayStr(end - 2:end) = [];
+                arrayStr(end - 1:end) = [];
             end
             
             MarkDown = sprintf('%s%s\n', Obj.layout.blockQuote, arrayStr);

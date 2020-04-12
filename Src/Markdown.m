@@ -165,7 +165,7 @@ classdef Markdown < handle
             % write file
             [~, markdownName, ~] = fileparts(Obj.filePath);
             imgFile = fullfile(Obj.imagesPath, strcat(markdownName, '_', Name, '.png'));
-            img = getFrameMinimal(Handle);
+            img = getFrameMinimal(Handle,8);
             imwrite(img, imgFile);
             
             % now we transform the file path to a relative path by
